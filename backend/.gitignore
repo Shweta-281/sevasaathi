@@ -1,0 +1,9 @@
+node_modules
+.env
+dev.db
+dev.db-*
+test.db
+test.db-*
+storage/
+coverage/
+*.log

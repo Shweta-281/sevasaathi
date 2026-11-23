@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: sevasaathi-demo-api-2026
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci && npx prisma generate
+    startCommand: mkdir -p storage/uploads storage/backups && npx prisma db push && SEED_SERVICES_ONLY=true node prisma/seed.js && node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db?connection_limit=1&journal_mode=WAL&foreign_keys=ON&busy_timeout=5000
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: AADHAAR_ENC_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://sevasaathi-demo-web-2026.onrender.com
+      - key: APP_BASE_URL
+        value: https://sevasaathi-demo-api-2026.onrender.com
+      - key: UPLOAD_DIR
+        value: ./storage/uploads
+
+  - type: web
+    name: sevasaathi-demo-web-2026
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://sevasaathi-demo-api-2026.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
