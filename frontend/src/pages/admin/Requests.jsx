@@ -15,6 +15,8 @@ export default function AdminRequests() {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const [completionRequest, setCompletionRequest] = useState(null);
+  const [completionChecks, setCompletionChecks] = useState({ detailsVerified: false, documentsReviewed: false, officialRecordPrepared: false });
 
   const load = () => {
     setLoading(true);
@@ -26,12 +28,27 @@ export default function AdminRequests() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [status, page]);
 
-  const updateStatus = async (id, newStatus, reason) => {
+  const updateStatus = async (id, newStatus, reason, completionChecklist) => {
     try {
-      await api.patch(`/requests/${id}/status`, { status: newStatus, reason });
+      await api.patch(`/requests/${id}/status`, { status: newStatus, reason, ...(completionChecklist ? { completionChecklist } : {}) });
       toast.success('Status updated');
+      setCompletionRequest(null);
       load();
     } catch (e) { toast.error(e.response?.data?.error || 'Failed'); }
+  };
+
+  const manageDelivery = async (request) => {
+    const status = window.prompt('Enter DISPATCHED or DELIVERED', request.deliveryStatus === 'DISPATCHED' ? 'DELIVERED' : 'DISPATCHED');
+    if (!status || !['DISPATCHED', 'DELIVERED'].includes(status.toUpperCase())) return;
+    const carrier = window.prompt('Courier or delivery provider', request.deliveryCarrier || '');
+    if (!carrier) return;
+    const trackingNumber = window.prompt('Tracking number (optional)', request.deliveryTrackingNumber || '') || '';
+    const trackingUrl = window.prompt('HTTPS tracking link (optional)', request.deliveryTrackingUrl || '') || '';
+    try {
+      await api.patch(`/requests/${request.id}/delivery`, { status: status.toUpperCase(), carrier, ...(trackingNumber ? { trackingNumber } : {}), ...(trackingUrl ? { trackingUrl } : {}) });
+      toast.success('Delivery updated');
+      load();
+    } catch (error) { toast.error(error.response?.data?.error || 'Could not update delivery'); }
   };
 
   return (
@@ -70,6 +87,7 @@ export default function AdminRequests() {
                   <th className="table-header px-6 py-3">Service</th>
                   <th className="table-header px-6 py-3">Fee</th>
                   <th className="table-header px-6 py-3">Status</th>
+                  <th className="table-header px-6 py-3">Delivery</th>
                   <th className="table-header px-6 py-3">Created</th>
                   <th className="table-header px-6 py-3">Update</th>
                 </tr>
@@ -82,12 +100,18 @@ export default function AdminRequests() {
                     <td className="px-6 py-4 font-medium text-ink-900">{r.service?.name}</td>
                     <td className="px-6 py-4 text-ink-700">{formatINR(r.amountPaise)}</td>
                     <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
+                    <td className="px-6 py-4 text-xs text-ink-600">{r.deliveryStatus && r.deliveryStatus !== 'NOT_REQUESTED' ? <><div>{r.deliveryStatus}{r.deliveryCarrier ? ` · ${r.deliveryCarrier}` : ''}</div>{r.deliveryTrackingUrl && <a href={r.deliveryTrackingUrl} target="_blank" rel="noreferrer" className="text-brand-600 underline">Track</a>}{r.deliveryStatus !== 'DELIVERED' && <button type="button" onClick={() => manageDelivery(r)} className="ml-2 text-brand-600 underline">Update</button>}</> : '—'}</td>
                     <td className="px-6 py-4 text-xs text-ink-500">{formatDate(r.createdAt)}</td>
                     <td className="px-6 py-4">
                       <select className="text-xs rounded-md border border-ink-200 px-2 py-1"
                         value={r.status}
                         onChange={(e) => {
                           const s = e.target.value;
+                          if (s === 'COMPLETED') {
+                            setCompletionRequest(r);
+                            setCompletionChecks({ detailsVerified: false, documentsReviewed: false, officialRecordPrepared: false });
+                            return;
+                          }
                           const reason = s === 'DOCUMENTS_PENDING' || s === 'REJECTED'
                             ? window.prompt('Reason (visible to customer):') || undefined : undefined;
                           updateStatus(r.id, s, reason);
@@ -109,6 +133,11 @@ export default function AdminRequests() {
           </div>
         </div>
       </Card>
+      {completionRequest && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><Card className="w-full max-w-lg p-6"><h2 className="text-lg font-semibold text-ink-900">Completion checklist</h2><p className="mt-1 text-sm text-ink-500">Confirm these items before completing {completionRequest.trackingNumber}.</p><div className="mt-5 space-y-3">{[
+        ['detailsVerified', 'Applicant and application details verified'],
+        ['documentsReviewed', 'Required supporting documents reviewed'],
+        ['officialRecordPrepared', 'Official document prepared or made ready by the issuing authority'],
+      ].map(([key, label]) => <label key={key} className="flex items-start gap-3 text-sm text-ink-700"><input type="checkbox" checked={completionChecks[key]} onChange={(event) => setCompletionChecks((checks) => ({ ...checks, [key]: event.target.checked }))} className="mt-0.5 rounded border-ink-300" /><span>{label}</span></label>)}</div><div className="mt-6 flex justify-end gap-2"><Button variant="secondary" onClick={() => setCompletionRequest(null)}>Cancel</Button><Button disabled={!Object.values(completionChecks).every(Boolean)} onClick={() => updateStatus(completionRequest.id, 'COMPLETED', undefined, completionChecks)}>Confirm completion</Button></div></Card></div>}
     </div>
   );
 }

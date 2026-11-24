@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.js",
     "test:watch": "vitest",
+    "test:unit": "vitest run",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "db:push:postgres": "prisma db push --schema prisma/schema.postgresql.prisma",
+    "db:generate:postgres": "prisma generate --schema prisma/schema.postgresql.prisma",
     "db:seed": "node prisma/seed.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "lint": "eslint src tests prisma scripts",
+    "format": "prettier --write \"src/**/*.{js,json}\" \"tests/**/*.js\" \"prisma/**/*.{js,prisma}\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

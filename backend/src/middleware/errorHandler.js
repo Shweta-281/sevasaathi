@@ -16,6 +16,13 @@ export function errorHandler(err, req, res, _next) {
   if (err instanceof ZodError) {
     return res.status(400).json({ error: 'Validation failed', code: 'VALIDATION_ERROR', details: err.flatten() });
   }
+  if (err?.name === 'MulterError') {
+    const tooLarge = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(tooLarge ? 413 : 400).json({
+      error: tooLarge ? 'Uploaded file exceeds the size limit' : 'Upload could not be accepted',
+      code: tooLarge ? 'FILE_TOO_LARGE' : 'INVALID_UPLOAD',
+    });
+  }
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'Duplicate value', code: 'CONFLICT' });
     if (err.code === 'P2025') return res.status(404).json({ error: 'Record not found', code: 'NOT_FOUND' });

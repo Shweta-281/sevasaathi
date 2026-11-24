@@ -9,6 +9,8 @@ import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { openapi } from './docs/openapi.js';
 import { config } from './config.js';
+import rateLimit from 'express-rate-limit';
+import { sanitizeInput } from './middleware/sanitizeInput.js';
 
 export function createApp() {
   const app = express();
@@ -22,11 +24,12 @@ export function createApp() {
 
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
+  app.use(sanitizeInput);
 
   app.get('/api/docs.json', (_req, res) => res.json(openapi));
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
-  app.use('/api', routes);
+  app.use('/api', rateLimit({ windowMs: 15 * 60_000, limit: 600, standardHeaders: 'draft-7', legacyHeaders: false }), routes);
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;

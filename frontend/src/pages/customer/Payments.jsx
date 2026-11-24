@@ -15,8 +15,16 @@ export default function Payments() {
     try {
       const { data } = await api.get(`/payments/${request.id}/receipt.pdf`, { responseType: 'blob' });
       const url = URL.createObjectURL(data);
-      const link = window.document.createElement('a'); link.href = url; link.download = `receipt-${request.trackingNumber}.pdf`; link.click(); URL.revokeObjectURL(url);
-    } catch { toast.error('Receipt is not available'); }
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${request.trackingNumber}.pdf`;
+      window.document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error.response?.status === 404 ? 'No payment receipt is recorded for this request yet.' : 'Could not download the receipt. Please try again.');
+    }
   };
 
   return <div>

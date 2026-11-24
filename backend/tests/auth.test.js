@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import prisma from '../src/lib/prisma.js';
@@ -7,10 +7,6 @@ const app = createApp();
 const email = `auth${Date.now()}@test.local`;
 
 describe('Auth', () => {
-  beforeAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { contains: '@test.local' } } });
-  });
-
   it('registers a new customer', async () => {
     const res = await request(app).post('/api/auth/register')
       .send({ email, password: 'password123', fullName: 'Test User' });
@@ -38,6 +34,7 @@ describe('Auth', () => {
       .send({ email, password: 'wrong' });
     expect(res.status).toBe(401);
   });
+
 
   afterAll(async () => { await prisma.$disconnect(); });
 });

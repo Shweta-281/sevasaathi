@@ -1,0 +1,73 @@
+{
+  "info": {
+    "_postman_id": "ce1d54d8-7407-49ef-bbbe-95b7589cba40",
+    "name": "SevaSaathi API",
+    "description": "Local academic demo API. Use fictional data only. Set baseUrl, credentials and identifiers in a Postman environment. This collection never represents government-issued identity documents.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api" },
+    { "key": "email", "value": "customer@sevasaathi.test" },
+    { "key": "password", "value": "password123" },
+    { "key": "accessToken", "value": "" },
+    { "key": "serviceId", "value": "" },
+    { "key": "requestId", "value": "" },
+    { "key": "trackingNumber", "value": "" },
+    { "key": "userId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health and authentication",
+      "item": [
+        { "name": "Health check", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
+        {
+          "name": "Register customer",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"new-customer@example.test\",\n  \"password\": \"ChangeMe123!\",\n  \"fullName\": \"Demo Customer\"\n}" }, "url": "{{baseUrl}}/auth/register" }
+        },
+        {
+          "name": "Login (stores access token)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/auth/login" }
+        },
+        { "name": "Current profile", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/auth/me" } },
+        { "name": "Forgot password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" }, "url": "{{baseUrl}}/auth/forgot-password" } },
+        { "name": "Refresh session", "request": { "method": "POST", "url": "{{baseUrl}}/auth/refresh" } },
+        { "name": "Logout", "request": { "method": "POST", "url": "{{baseUrl}}/auth/logout" } }
+      ]
+    },
+    {
+      "name": "Services and requests",
+      "item": [
+        { "name": "List active services", "request": { "method": "GET", "url": "{{baseUrl}}/services" } },
+        { "name": "Service details by slug", "request": { "method": "GET", "url": "{{baseUrl}}/services/birth-certificate" } },
+        {
+          "name": "Create request (adapt formData to selected service)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) { const body = pm.response.json(); pm.collectionVariables.set('requestId', body.id); pm.collectionVariables.set('trackingNumber', body.trackingNumber); }"] } }],
+          "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"formData\": {\n    \"childName\": \"Demo Child\",\n    \"dob\": \"2024-01-01\",\n    \"hospital\": \"Sample Hospital\"\n  },\n  \"consent\": true\n}" }, "url": "{{baseUrl}}/requests" }
+        },
+        { "name": "My requests", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/requests/mine" } },
+        { "name": "Public track", "request": { "method": "GET", "url": "{{baseUrl}}/requests/track/{{trackingNumber}}" } },
+        { "name": "Submit feedback (completed request)", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Demo feedback\"\n}" }, "url": "{{baseUrl}}/requests/{{requestId}}/feedback" } },
+        { "name": "Request notifications", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/notifications/mine" } }
+      ]
+    },
+    {
+      "name": "Appointments and payments",
+      "item": [
+        { "name": "Available appointment slots", "request": { "method": "GET", "url": "{{baseUrl}}/appointments/slots" } },
+        { "name": "My appointments", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/appointments/mine" } },
+        { "name": "Create demo payment", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"requestId\": \"{{requestId}}\"\n}" }, "url": "{{baseUrl}}/payments/demo" } },
+        { "name": "Download payment receipt PDF", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/payments/{{requestId}}/receipt.pdf" } }
+      ]
+    },
+    {
+      "name": "Staff and administrator (use matching role token)",
+      "item": [
+        { "name": "Staff queue and SLA", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/admin/staff-dashboard" } },
+        { "name": "Admin analytics", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/admin/analytics" } },
+        { "name": "Admin user list", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/admin/users" } },
+        { "name": "Configured support contact", "request": { "method": "GET", "url": "{{baseUrl}}/support/contact" } }
+      ]
+    }
+  ]
+}

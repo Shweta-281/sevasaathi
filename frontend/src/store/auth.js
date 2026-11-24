@@ -26,8 +26,8 @@ export const useAuth = create((set, get) => ({
     })();
     return initialization;
   },
-  login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+  login: async (email, password, otp) => {
+    const { data } = await api.post('/auth/login', { email, password, ...(otp ? { otp } : {}) });
     setAccessToken(data.accessToken);
     set({ user: data.user });
     return data.user;

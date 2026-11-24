@@ -11,6 +11,8 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const login = useAuth((s) => s.login);
   const [loading, setLoading] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState('');
   const nav = useNavigate();
   const loc = useLocation();
   const onAuthenticated = (user) => {
@@ -22,10 +24,12 @@ export default function Login() {
   const onSubmit = async ({ email, password }) => {
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, otp);
       onAuthenticated(user);
     } catch (e) {
-      toast.error(e.response?.data?.error || 'Login failed');
+      if (e.response?.data?.code === 'OTP_REQUIRED') setShowOtp(true);
+      else if (e.response?.data?.code === 'INVALID_OTP') { setShowOtp(true); toast.error('Enter the current 6-digit authenticator code'); }
+      else toast.error(e.response?.data?.error || 'Login failed');
     } finally { setLoading(false); }
   };
 
@@ -61,6 +65,7 @@ export default function Login() {
               <Input type="password" placeholder="••••••••"
                 {...register('password', { required: 'Password is required' })} invalid={!!errors.password} />
             </Field>
+            {showOtp && <Field label="Authenticator code"><Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" required value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} /></Field>}
             <div className="flex items-center justify-between text-xs">
               <label className="inline-flex items-center gap-2 text-ink-600">
                 <input type="checkbox" className="rounded border-ink-300 text-brand-600 focus:ring-brand-500" /> Remember me

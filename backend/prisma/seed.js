@@ -88,7 +88,7 @@ async function main() {
     const { legacyEmail, ...userData } = u;
     await prisma.user.upsert({
       where: { email: userData.email },
-      update: { passwordHash },
+      update: { passwordHash, emailVerifiedAt: new Date(), active: true },
       create: { ...userData, passwordHash, emailVerifiedAt: new Date() },
     });
   }
@@ -163,6 +163,39 @@ async function main() {
         },
       });
     }
+  }
+
+  // Keep one clearly fictional completed birth request available for the demo login.
+  const birthService = dbServices.find((service) => service.slug === 'birth-certificate');
+  const demoBirthMarker = 'SevaSaathi demo completed birth record';
+  const existingBirthDemo = await prisma.request.findFirst({ where: { userId: customer.id, formData: { contains: demoBirthMarker } } });
+  let birthDemoRequest = existingBirthDemo;
+  if (birthService && !existingBirthDemo) {
+    let sequence = ++maxSequence;
+    let trackingNumber = `AS-${year}-${String(sequence).padStart(6, '0')}`;
+    while (occupiedNumbers.has(trackingNumber)) {
+      sequence = ++maxSequence;
+      trackingNumber = `AS-${year}-${String(sequence).padStart(6, '0')}`;
+    }
+    occupiedNumbers.add(trackingNumber);
+    birthDemoRequest = await prisma.request.create({
+      data: {
+        trackingNumber, userId: customer.id, serviceId: birthService.id, status: 'COMPLETED',
+        formData: JSON.stringify({ childName: 'Rahul Sharma', dob: '2010-01-15', hospital: 'Demo City Hospital', note: demoBirthMarker }),
+        amountPaise: birthService.feePaise, consentAt: new Date(), consentVersion: 'v1', paidAt: new Date(),
+      },
+    });
+  }
+  // The demo birth request is paid, so make sure it also has the payment row required by receipt downloads.
+  if (birthDemoRequest) {
+    await prisma.payment.upsert({
+      where: { requestId: birthDemoRequest.id },
+      create: {
+        requestId: birthDemoRequest.id, amountPaise: birthDemoRequest.amountPaise,
+        method: 'UPI', status: 'PAID', receiptNumber: `DEMO-${birthDemoRequest.trackingNumber}`, notes: 'Demo Payment',
+      },
+      update: { status: 'PAID' },
+    });
   }
 
   // Keep generated demo requests from colliding with the next real request.

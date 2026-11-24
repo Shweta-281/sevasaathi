@@ -9,7 +9,7 @@ import api from '../../lib/api.js';
 import { Button, Card, EmptyState, Spinner } from '../../components/ui/index.jsx';
 import { Input } from '../../components/ui/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
-import { formatINR } from '../../lib/constants.js';
+import { formatDate, formatINR } from '../../lib/constants.js';
 
 const formatTime = (value) => new Intl.DateTimeFormat('en-IN', {
   timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short',
@@ -33,6 +33,8 @@ export default function StaffDashboard() {
   const [matches, setMatches] = useState([]);
   const [searching, setSearching] = useState(false);
   const [updatingId, setUpdatingId] = useState('');
+  const [completionRequest, setCompletionRequest] = useState(null);
+  const [completionChecks, setCompletionChecks] = useState({ detailsVerified: false, documentsReviewed: false, officialRecordPrepared: false });
 
   const loadDashboard = () => {
     setLoading(true);
@@ -59,14 +61,19 @@ export default function StaffDashboard() {
     } finally { setSearching(false); }
   };
 
-  const advanceRequest = async (request) => {
+  const advanceRequest = async (request, completionChecklist) => {
     const action = nextStep[request.status];
     if (!action) return;
-    if (action.confirm && !window.confirm(`Confirm the handover for ${request.trackingNumber}? This will mark it completed.`)) return;
+    if (action.confirm && !completionChecklist) {
+      setCompletionRequest(request);
+      setCompletionChecks({ detailsVerified: false, documentsReviewed: false, officialRecordPrepared: false });
+      return;
+    }
     setUpdatingId(request.id);
     try {
-      await api.patch(`/requests/${request.id}/status`, { status: action.status });
+      await api.patch(`/requests/${request.id}/status`, { status: action.status, ...(completionChecklist ? { completionChecklist } : {}) });
       toast.success(`${request.trackingNumber} updated`);
+      setCompletionRequest(null);
       await loadDashboard();
       if (query.trim()) await searchRequests({ preventDefault() {} });
     } catch (requestError) {
@@ -85,6 +92,7 @@ export default function StaffDashboard() {
     { label: 'New requests today', value: counts.requestsToday || 0, icon: FileText, color: 'text-brand-700 bg-brand-50' },
     { label: 'Awaiting review', value: counts.submitted || 0, icon: Clock3, color: 'text-amber-700 bg-amber-50' },
     { label: 'Documents needed', value: counts.documentsPending || 0, icon: FileSearch, color: 'text-orange-700 bg-orange-50' },
+    { label: 'Overdue requests', value: counts.overdue || 0, icon: Clock3, color: 'text-rose-700 bg-rose-50' },
     { label: 'Appointments today', value: counts.appointmentsToday || 0, icon: CalendarDays, color: 'text-blue-700 bg-blue-50' },
     { label: 'Payments today', value: `${counts.paymentsToday || 0} · ${formatINR(counts.revenueTodayPaise || 0)}`, icon: Wallet, color: 'text-emerald-700 bg-emerald-50' },
   ];
@@ -102,7 +110,7 @@ export default function StaffDashboard() {
 
       {error && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">Some dashboard data could not be refreshed: {error}</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {metrics.map(({ label, value, icon: Icon, color }) => <Card key={label} className="p-4 sm:p-5">
           <div className={`grid h-10 w-10 place-items-center rounded-xl ${color}`}><Icon className="h-5 w-5" /></div>
           <p className="mt-4 text-2xl font-bold text-ink-900">{value}</p>
@@ -148,6 +156,7 @@ export default function StaffDashboard() {
                   <p className="text-sm text-ink-600">{request.serviceName}</p>
                   {request.status === 'DOCUMENTS_PENDING' && <p className="mt-1 text-xs text-amber-700">Waiting for customer documents{request.statusReason ? ` · ${request.statusReason}` : ''}</p>}
                   <p className="mt-1 text-xs text-ink-500">Submitted {formatTime(request.createdAt)}</p>
+                  {request.dueAt && new Date(request.dueAt) < new Date() && !['COMPLETED', 'REJECTED'].includes(request.status) && <p className="mt-1 text-xs font-semibold text-rose-700">Overdue · SLA date {formatTime(request.dueAt)}</p>}
                 </div>
                 {action ? <Button size="sm" variant={action.confirm ? 'secondary' : 'primary'} loading={updatingId === request.id} disabled={Boolean(updatingId) && updatingId !== request.id} onClick={() => advanceRequest(request)}>{action.label}</Button> : <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700"><UserRoundCheck className="h-4 w-4" /> Customer action</span>}
               </div>;
@@ -156,16 +165,21 @@ export default function StaffDashboard() {
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="border-b border-ink-100 p-5 sm:px-6"><h2 className="text-lg font-semibold text-ink-900">Today’s appointments</h2><p className="mt-1 text-sm text-ink-600">Booked visits for {data.date}</p></div>
-          {!data.appointments.length ? <EmptyState icon={CalendarDays} title="No visits booked today" description="New bookings will appear here automatically." /> : <div className="divide-y divide-ink-100">
+          <div className="border-b border-ink-100 p-5 sm:px-6"><h2 className="text-lg font-semibold text-ink-900">Upcoming appointments</h2><p className="mt-1 text-sm text-ink-600">Today’s and future booked visits</p></div>
+          {!data.appointments.length ? <EmptyState icon={CalendarDays} title="No upcoming visits" description="New bookings will appear here automatically." /> : <div className="divide-y divide-ink-100">
             {data.appointments.map((appointment) => <div key={appointment.id} className="flex items-start gap-3 p-4 sm:px-6">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><CalendarDays className="h-5 w-5" /></span>
-              <div className="min-w-0"><p className="font-semibold text-ink-900">{appointment.slot}</p><p className="mt-0.5 text-sm text-ink-700">{appointment.customerName}</p><p className="text-xs text-ink-500">{appointment.serviceName}</p></div>
+              <div className="min-w-0"><p className="font-semibold text-ink-900">{formatDate(appointment.date)} · {appointment.slot}</p><p className="mt-0.5 text-sm text-ink-700">{appointment.customerName}</p><p className="text-xs text-ink-500">{appointment.serviceName}</p></div>
             </div>)}
           </div>}
           <div className="border-t border-ink-100 p-4 sm:px-6"><Link to="/admin/requests" className="text-sm font-medium text-brand-700 hover:text-brand-800">Open request desk →</Link></div>
         </Card>
       </div>
+      {completionRequest && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><Card className="w-full max-w-lg p-6"><h2 className="text-lg font-semibold text-ink-900">Completion checklist</h2><p className="mt-1 text-sm text-ink-500">Confirm each item before completing {completionRequest.trackingNumber}.</p><div className="mt-5 space-y-3">{[
+        ['detailsVerified', 'Applicant and application details verified'],
+        ['documentsReviewed', 'Required supporting documents reviewed'],
+        ['officialRecordPrepared', 'Official record prepared or made ready by the issuing authority'],
+      ].map(([key, label]) => <label key={key} className="flex items-start gap-3 text-sm text-ink-700"><input type="checkbox" checked={completionChecks[key]} onChange={(event) => setCompletionChecks((checks) => ({ ...checks, [key]: event.target.checked }))} className="mt-0.5 rounded border-ink-300" /><span>{label}</span></label>)}</div><div className="mt-6 flex justify-end gap-2"><Button variant="secondary" onClick={() => setCompletionRequest(null)}>Cancel</Button><Button disabled={!Object.values(completionChecks).every(Boolean)} loading={updatingId === completionRequest.id} onClick={() => advanceRequest(completionRequest, completionChecks)}>Confirm completion</Button></div></Card></div>}
     </div>
   );
 }

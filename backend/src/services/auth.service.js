@@ -10,6 +10,7 @@ import { sendEmail } from './email.service.js';
 import { config } from '../config.js';
 import jwt from 'jsonwebtoken';
 import { createPublicKey } from 'node:crypto';
+import { decryptTotpSecret, encryptTotpSecret, newTotpSecret, verifyTotp } from '../utils/totp.js';
 
 const isDev = config.NODE_ENV !== 'production';
 let googleKeysCache = { keys: null, expiresAt: 0 };
@@ -70,27 +71,19 @@ export async function register({ email, password, fullName, phone }) {
     throw Errors.conflict('Email already registered', 'EMAIL_TAKEN');
   }
   const user = await prisma.user.create({
-    data: { email, passwordHash: await hashPassword(password), fullName, phone, role: 'CUSTOMER' },
+    data: { email, passwordHash: await hashPassword(password), fullName, phone, role: 'CUSTOMER', emailVerifiedAt: new Date() },
   });
-  const token = crypto.randomBytes(32).toString('hex');
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { emailVerifyTokenHash: hashRefreshToken(token), emailVerifyExpiresAt: new Date(Date.now() + 24 * 3600_000) },
-  });
-  const link = `${config.APP_BASE_URL}/api/auth/verify-email?token=${token}`;
-  await sendEmail({ to: user.email, template: 'verify-email', vars: { name: user.fullName || user.email, link } });
-  if (isDev) console.log('[dev] verify:', link);
   return { id: user.id, email: user.email, role: user.role };
 }
 
 export async function getProfile(userId) {
-  const [user] = await prisma.$queryRaw`SELECT "id", "email", "role", "fullName", "phone", "address" FROM "User" WHERE "id" = ${userId} LIMIT 1`;
+  const [user] = await prisma.$queryRaw`SELECT "id", "email", "role", "fullName", "phone", "address", "emailNotifications", "totpEnabled" FROM "User" WHERE "id" = ${userId} LIMIT 1`;
   if (!user) throw Errors.notFound('Account not found');
   return user;
 }
 
 export async function updateProfile(userId, data) {
-  await prisma.$executeRaw`UPDATE "User" SET "fullName" = ${data.fullName}, "phone" = ${data.phone || null}, "address" = ${data.address || null}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ${userId}`;
+  await prisma.$executeRaw`UPDATE "User" SET "fullName" = ${data.fullName}, "phone" = ${data.phone || null}, "address" = ${data.address || null}, "emailNotifications" = ${data.emailNotifications}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ${userId}`;
   return getProfile(userId);
 }
 
@@ -113,21 +106,11 @@ export async function deleteAccount(userId, password) {
   }));
 }
 
-export async function verifyEmail(token) {
-  const user = await prisma.user.findFirst({
-    where: { emailVerifyTokenHash: hashRefreshToken(token), emailVerifyExpiresAt: { gt: new Date() } },
-  });
-  if (!user) throw Errors.badRequest('Invalid or expired token', 'INVALID_TOKEN');
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { emailVerifiedAt: new Date(), emailVerifyTokenHash: null, emailVerifyExpiresAt: null },
-  });
-}
-
-export async function login({ email, password }, req) {
+export async function login({ email, password, otp }, req) {
   email = email.toLowerCase().trim();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw Errors.unauthorized('Invalid credentials', 'INVALID_CREDENTIALS');
+  if (!user.active) throw Errors.forbidden('This account is deactivated. Contact support.', 'ACCOUNT_DEACTIVATED');
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     throw Errors.tooMany('Account locked. Try again later.', 'ACCOUNT_LOCKED');
   }
@@ -140,9 +123,37 @@ export async function login({ email, password }, req) {
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: newFailed, lockedUntil } });
     throw Errors.unauthorized('Invalid credentials', 'INVALID_CREDENTIALS');
   }
+  if (user.totpEnabled && (!user.totpSecret || !verifyTotp(decryptTotpSecret(user.totpSecret), otp))) {
+    throw Errors.unauthorized(otp ? 'Invalid authenticator code' : 'Authenticator code required', otp ? 'INVALID_OTP' : 'OTP_REQUIRED');
+  }
   await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
   const session = await issueSession(user, req);
   return { ...session, user: { id: user.id, email: user.email, role: user.role, fullName: user.fullName, phone: user.phone } };
+}
+
+export async function setupTotp(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !['ADMIN', 'STAFF'].includes(user.role)) throw Errors.forbidden('Authenticator setup is for staff and administrators');
+  if (user.totpEnabled) throw Errors.conflict('Two-factor authentication is already enabled', 'TOTP_ENABLED');
+  const secret = newTotpSecret();
+  await prisma.user.update({ where: { id: userId }, data: { totpSecret: encryptTotpSecret(secret) } });
+  const label = encodeURIComponent(`SevaSaathi:${user.email}`);
+  const uri = `otpauth://totp/${label}?secret=${secret}&issuer=SevaSaathi&algorithm=SHA1&digits=6&period=30`;
+  return { secret, uri };
+}
+
+export async function enableTotp(userId, code) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.totpSecret || !verifyTotp(decryptTotpSecret(user.totpSecret), code)) throw Errors.badRequest('Invalid authenticator code', 'INVALID_OTP');
+  await prisma.user.update({ where: { id: userId }, data: { totpEnabled: true } });
+  return { enabled: true };
+}
+
+export async function disableTotp(userId, code) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.totpEnabled || !user.totpSecret || !verifyTotp(decryptTotpSecret(user.totpSecret), code)) throw Errors.badRequest('Invalid authenticator code', 'INVALID_OTP');
+  await prisma.user.update({ where: { id: userId }, data: { totpEnabled: false, totpSecret: null } });
+  return { enabled: false };
 }
 
 export async function loginWithGoogle(credential, nonce, req) {
@@ -220,7 +231,7 @@ export async function forgotPassword(email) {
       passwordResetExpiresAt: new Date(Date.now() + 3600_000),
     },
   });
-  const link = `${config.APP_BASE_URL}/reset-password?token=${token}`;
+  const link = `${config.FRONTEND_URL}/reset-password?token=${token}`;
   await sendEmail({ to: user.email, template: 'reset-password', vars: { name: user.fullName || user.email, link } });
   if (isDev) console.log('[dev] reset:', link);
 }

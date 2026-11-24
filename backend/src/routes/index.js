@@ -8,6 +8,7 @@ import appointments from './appointments.routes.js';
 import admin from './admin.routes.js';
 import support from './support.routes.js';
 import prisma from '../lib/prisma.js';
+import notifications from './notifications.routes.js';
 
 const router = Router();
 router.get('/health', async (_req, res) => {
@@ -26,4 +27,5 @@ router.use('/payments', payments);
 router.use('/appointments', appointments);
 router.use('/admin', admin);
 router.use('/support', support);
+router.use('/notifications', notifications);
 export default router;

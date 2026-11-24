@@ -30,7 +30,7 @@ describe('Request lifecycle', () => {
     });
     serviceId = s.id;
     await prisma.user.create({
-      data: { email, passwordHash: await hashPassword('password123'), role: 'CUSTOMER' },
+      data: { email, passwordHash: await hashPassword('password123'), role: 'CUSTOMER', emailVerifiedAt: new Date() },
     });
     const login = await request(app).post('/api/auth/login').send({ email, password: 'password123' });
     accessToken = login.body.accessToken;

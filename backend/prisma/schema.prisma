@@ -12,9 +12,13 @@ model User {
   email                  String    @unique
   passwordHash           String
   role                   String    @default("CUSTOMER")
+  active                 Boolean   @default(true)
   fullName               String?
   phone                  String?
   address                String?
+  emailNotifications     Boolean   @default(true)
+  totpEnabled            Boolean   @default(false)
+  totpSecret             String?
   googleSub              String?   @unique
   emailVerifiedAt        DateTime?
   emailVerifyTokenHash   String?
@@ -31,6 +35,8 @@ model User {
   appointments  Appointment[]
   auditLogs     AuditLog[]
   staffPayments Payment[]      @relation("StaffPayment")
+  feedback      Feedback[]
+  notifications Notification[]
 
   @@index([role])
 }
@@ -58,6 +64,7 @@ model Service {
   category          String
   description       String
   feePaise          Int
+  expectedProcessingDays Int @default(7)
   requiredDocuments String
   formSchema        String
   active            Boolean  @default(true)
@@ -84,6 +91,14 @@ model Request {
   consentVersion   String?
   amountPaise      Int
   paidAt           DateTime?
+  deliveryStatus   String    @default("NOT_REQUESTED")
+  deliveryAddress  String?
+  deliveryRequestedAt DateTime?
+  deliveryCarrier String?
+  deliveryTrackingNumber String?
+  deliveryTrackingUrl String?
+  completionChecklist String?
+  dueAt            DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -91,11 +106,54 @@ model Request {
   service   Service   @relation(fields: [serviceId], references: [id])
   documents Document[]
   payment   Payment?
+  events    RequestEvent[]
+  feedback  Feedback?
 
   @@index([userId])
   @@index([serviceId])
   @@index([status])
   @@index([createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  requestId String   @unique
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model RequestEvent {
+  id        String   @id @default(cuid())
+  requestId String
+  type      String
+  status    String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
 }
 
 model Document {

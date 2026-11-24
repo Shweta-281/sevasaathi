@@ -1,13 +1,21 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
+
 WORKDIR /app
-RUN apk add --no-cache sqlite tini
+RUN apk add --no-cache sqlite tini postgresql-client
+
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
+
 COPY prisma ./prisma
-RUN npx prisma generate
+ARG PRISMA_SCHEMA=prisma/schema.prisma
+RUN npx prisma generate --schema=${PRISMA_SCHEMA}
+
 COPY . .
-RUN mkdir -p /app/storage/uploads /app/storage/backups
+RUN mkdir -p /app/storage/uploads /app/storage/backups \
+  && chown -R node:node /app
+
 ENV NODE_ENV=production
+USER node
 EXPOSE 4000
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "src/server.js"]

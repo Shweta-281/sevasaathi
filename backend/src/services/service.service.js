@@ -17,7 +17,7 @@ export async function listServices({ category, q, activeOnly = true } = {}) {
 
 export async function getServiceBySlug(slug) {
   const s = await prisma.service.findUnique({ where: { slug } });
-  if (!s) throw Errors.notFound('Service not found', 'SERVICE_NOT_FOUND');
+  if (!s || !s.active) throw Errors.notFound('Service not found', 'SERVICE_NOT_FOUND');
   return parse(s);
 }
 
@@ -39,5 +39,5 @@ export async function updateService(id, input) {
 }
 
 export async function deleteService(id) {
-  await prisma.service.delete({ where: { id } });
+  return parse(await prisma.service.update({ where: { id }, data: { active: false } }));
 }

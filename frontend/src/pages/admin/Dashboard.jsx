@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, FileText, Users, Calendar, RefreshCw } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import api from '../../lib/api.js';
 import { Button, Card, Spinner } from '../../components/ui/index.jsx';
 import { formatINR } from '../../lib/constants.js';
@@ -32,6 +32,9 @@ export default function AdminDashboard() {
   const chart = Object.entries(data.dailyRequests || {})
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, count]) => ({ date: date.slice(5), count }));
+  const revenueChart = Object.entries(data.revenueByDay || {}).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: date.slice(5), amount }));
+  const statusChart = Object.entries(data.byStatus || {}).map(([name, value]) => ({ name: name.replaceAll('_', ' '), value }));
+  const chartColors = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#e11d48', '#7c3aed'];
 
   const kpis = [
     { label: 'Total requests', value: data.totalRequests, icon: FileText, tone: 'brand' },
@@ -105,6 +108,11 @@ export default function AdminDashboard() {
           </ul>
           <Link to="/admin/requests" className="mt-6 text-sm font-medium text-brand-600 hover:text-brand-700 inline-block">View all requests →</Link>
         </Card>
+      </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card className="p-6"><h2 className="font-semibold text-ink-900">Revenue (last 30 days)</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={revenueChart}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" /><YAxis tickFormatter={(value) => `₹${Math.round(value / 100)}`} /><Tooltip formatter={(value) => formatINR(value)} /><Area dataKey="amount" name="Revenue" stroke="#059669" fill="#a7f3d0" /></AreaChart></ResponsiveContainer></div></Card>
+        <Card className="p-6"><h2 className="font-semibold text-ink-900">Top services</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.topServices || []} layout="vertical" margin={{ left: 12 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" allowDecimals={false} /><YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="requests" name="Requests" fill="#4f46e5" radius={[0, 5, 5, 0]} /></BarChart></ResponsiveContainer></div></Card>
+        <Card className="p-6 lg:col-span-2"><h2 className="font-semibold text-ink-900">Requests by status</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={statusChart} dataKey="value" nameKey="name" innerRadius={55} outerRadius={95} paddingAngle={3} label>{statusChart.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div></Card>
       </div>
     </div>
   );

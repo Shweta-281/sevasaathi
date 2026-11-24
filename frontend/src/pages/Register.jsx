@@ -21,7 +21,7 @@ export default function Register() {
     setLoading(true);
     try {
       await reg(data);
-      toast.success('Account created. Check your email to verify.');
+      toast.success('Account created. You can sign in now.');
       nav('/login');
     } catch (e) {
       toast.error(e.response?.data?.error || 'Registration failed');

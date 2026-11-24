@@ -10,6 +10,7 @@ export async function requireAuth(req, res, next) {
     const payload = verifyAccess(token);
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw Errors.unauthorized('Invalid session', 'INVALID_SESSION');
+    if (!user.active) throw Errors.forbidden('Account deactivated', 'ACCOUNT_DEACTIVATED');
     req.user = { id: user.id, role: user.role, email: user.email };
     next();
   } catch (e) {

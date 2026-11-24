@@ -14,6 +14,9 @@ router.get('/', async (req, res, next) => {
     res.json(await svc.listServices({ category, q }));
   } catch (e) { next(e); }
 });
+router.get('/manage', requireAuth, requireRole('ADMIN'), async (_req, res, next) => {
+  try { res.json(await svc.listServices({ activeOnly: false })); } catch (e) { next(e); }
+});
 router.get('/:slug', async (req, res, next) => {
   try { res.json(await svc.getServiceBySlug(req.params.slug)); } catch (e) { next(e); }
 });
@@ -24,6 +27,7 @@ const serviceSchema = z.object({
   category: z.string().min(2).max(60),
   description: z.string().min(5).max(1000),
   feePaise: z.coerce.number().int().min(0),
+  expectedProcessingDays: z.coerce.number().int().min(1).max(365).default(7),
   requiredDocuments: z.array(z.string().min(1).max(80)).default([]),
   formSchema: z.object({ fields: z.array(z.any()) }).default({ fields: [] }),
   active: z.boolean().default(true),

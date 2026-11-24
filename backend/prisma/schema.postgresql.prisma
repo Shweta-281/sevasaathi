@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  passwordHash           String
+  role                   String    @default("CUSTOMER")
+  active                 Boolean   @default(true)
+  fullName               String?
+  phone                  String?
+  address                String?
+  emailNotifications     Boolean   @default(true)
+  totpEnabled            Boolean   @default(false)
+  totpSecret             String?
+  googleSub              String?   @unique
+  emailVerifiedAt        DateTime?
+  emailVerifyTokenHash   String?
+  emailVerifyExpiresAt   DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  failedLoginCount       Int       @default(0)
+  lockedUntil            DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  requests      Request[]
+  appointments  Appointment[]
+  auditLogs     AuditLog[]
+  staffPayments Payment[]      @relation("StaffPayment")
+  feedback      Feedback[]
+  notifications Notification[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Service {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  category          String
+  description       String
+  feePaise          Int
+  expectedProcessingDays Int @default(7)
+  requiredDocuments String
+  formSchema        String
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  requests     Request[]
+  appointments Appointment[]
+
+  @@index([category])
+  @@index([active])
+}
+
+model Request {
+  id               String    @id @default(cuid())
+  trackingNumber   String    @unique
+  userId           String
+  serviceId        String
+  status           String    @default("PENDING")
+  statusReason     String?
+  formData         String
+  aadhaarEncrypted String?
+  consentAt        DateTime?
+  consentVersion   String?
+  amountPaise      Int
+  paidAt           DateTime?
+  deliveryStatus   String    @default("NOT_REQUESTED")
+  deliveryAddress  String?
+  deliveryRequestedAt DateTime?
+  deliveryCarrier String?
+  deliveryTrackingNumber String?
+  deliveryTrackingUrl String?
+  completionChecklist String?
+  dueAt            DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service   Service   @relation(fields: [serviceId], references: [id])
+  documents Document[]
+  payment   Payment?
+  events    RequestEvent[]
+  feedback  Feedback?
+
+  @@index([userId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  requestId String   @unique
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model RequestEvent {
+  id        String   @id @default(cuid())
+  requestId String
+  type      String
+  status    String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  requestId    String
+  originalName String
+  storedName   String   @unique
+  mimeType     String
+  size         Int
+  kind         String?
+  uploadedAt   DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+model Payment {
+  id               String   @id @default(cuid())
+  requestId        String   @unique
+  orderId          String?  @unique
+  paymentId        String?  @unique
+  signature        String?
+  amountPaise      Int
+  currency         String   @default("INR")
+  method           String
+  status           String   @default("PENDING")
+  receiptNumber    String?  @unique
+  notes            String?
+  createdByStaffId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("StaffPayment", fields: [createdByStaffId], references: [id])
+
+  @@index([status])
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  userId    String
+  serviceId String
+  date      String
+  slot      String
+  status    String   @default("BOOKED")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@unique([userId, date, slot])
+  @@index([date, slot])
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Counter {
+  name  String @id
+  value Int    @default(0)
+}

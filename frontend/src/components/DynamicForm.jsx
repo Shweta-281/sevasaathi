@@ -21,12 +21,17 @@ function validate(field) {
 
 export default function DynamicForm({ schema, defaultValues = {}, onSubmit, submitLabel = 'Submit', loading }) {
   const fields = schema?.fields || [];
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues });
+  const allowedDefaults = Object.fromEntries(fields.filter((field) => Object.hasOwn(defaultValues, field.name)).map((field) => [field.name, defaultValues[field.name]]));
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues: allowedDefaults, shouldUnregister: true });
 
-  useEffect(() => { reset(defaultValues); }, [defaultValues, reset]);
+  useEffect(() => { reset(allowedDefaults); }, [defaultValues, schema, reset]);
+  const submit = handleSubmit((values) => {
+    const submitted = Object.fromEntries(fields.filter((field) => Object.hasOwn(values, field.name)).map((field) => [field.name, values[field.name]]));
+    return onSubmit(submitted);
+  });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={submit} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {fields.map((f) => {
           const err = errors[f.name]?.message;

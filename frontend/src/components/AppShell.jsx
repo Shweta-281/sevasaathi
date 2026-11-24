@@ -2,33 +2,38 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, PlusCircle, Calendar, Search, Files, CreditCard, CircleHelp, UserRound,
-  LogOut, BarChart3, ClipboardList, Settings, Download,
-  Menu, ChevronLeft, ChevronRight, X
+  LogOut, BarChart3, ClipboardList, Settings, Download, UsersRound, Star,
+  Menu, ChevronLeft, ChevronRight, X, Sun, Moon
 } from 'lucide-react';
 import { useAuth } from '../store/auth.js';
 import { Button } from './ui/index.jsx';
 import { cn } from '../lib/utils.js';
+import NotificationBell from './NotificationBell.jsx';
+import { useTranslation } from 'react-i18next';
 
 const customerNav = [
-  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/requests', label: 'My Requests', icon: FileText },
-  { to: '/app/requests/new', label: 'New Request', icon: PlusCircle },
-  { to: '/app/appointments', label: 'Appointments', icon: Calendar },
-  { to: '/app/documents', label: 'Documents', icon: Files },
-  { to: '/app/payments', label: 'Payments & receipts', icon: CreditCard },
-  { to: '/app/profile', label: 'Profile & settings', icon: UserRound },
-  { to: '/app/help', label: 'Help & support', icon: CircleHelp },
-  { to: '/services', label: 'Browse Services', icon: Search },
+  { to: '/app', label: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  { to: '/app/requests', label: 'nav.requests', icon: FileText },
+  { to: '/app/requests/new', label: 'nav.newRequest', icon: PlusCircle },
+  { to: '/app/appointments', label: 'nav.appointments', icon: Calendar },
+  { to: '/app/documents', label: 'nav.documents', icon: Files },
+  { to: '/app/payments', label: 'nav.payments', icon: CreditCard },
+  { to: '/app/profile', label: 'nav.profile', icon: UserRound },
+  { to: '/app/help', label: 'nav.help', icon: CircleHelp },
+  { to: '/services', label: 'nav.services', icon: Search },
 ];
 
 const adminNav = [
-  { to: '/admin', label: 'Overview', icon: BarChart3, end: true },
-  { to: '/admin/requests', label: 'All Requests', icon: ClipboardList },
-  { to: '/admin/services', label: 'Services', icon: Settings, adminOnly: true },
-  { to: '/admin/exports', label: 'Data exports', icon: Download, adminOnly: true },
+  { to: '/admin', label: 'nav.overview', icon: BarChart3, end: true },
+  { to: '/admin/requests', label: 'nav.allRequests', icon: ClipboardList },
+  { to: '/admin/services', label: 'nav.serviceAdmin', icon: Settings, adminOnly: true },
+  { to: '/admin/users', label: 'nav.users', icon: UsersRound, adminOnly: true },
+  { to: '/admin/feedback', label: 'nav.feedback', icon: Star, adminOnly: true },
+  { to: '/admin/exports', label: 'nav.exports', icon: Download, adminOnly: true },
 ];
 
 export default function AppShell({ area = 'customer', children }) {
+  const { t, i18n } = useTranslation();
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const nav = useNavigate();
@@ -38,6 +43,12 @@ export default function AppShell({ area = 'customer', children }) {
   // Sidebar State
   const [isCollapsed, setIsCollapsed] = useState(false); // Desktop collapse
   const [isMobileOpen, setIsMobileOpen] = useState(false); // Mobile drawer
+  const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem('sevasaathi-theme') === 'dark'; } catch { return false; } });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    try { localStorage.setItem('sevasaathi-theme', isDark ? 'dark' : 'light'); } catch {}
+  }, [isDark]);
 
   useEffect(() => {
     if (!isMobileOpen) return undefined;
@@ -102,7 +113,7 @@ export default function AppShell({ area = 'customer', children }) {
               to={to} 
               end={end}
               onClick={() => setIsMobileOpen(false)} // Close on mobile click
-              aria-label={label}
+              aria-label={t(label)}
               className={({ isActive }) => cn(
                 "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive 
@@ -110,10 +121,10 @@ export default function AppShell({ area = 'customer', children }) {
                   : "text-ink-600 hover:bg-ink-100 hover:text-ink-900",
                 isCollapsed ? "justify-start gap-3 lg:justify-center lg:gap-0" : "justify-start gap-3"
               )}
-              title={isCollapsed ? label : undefined} // Tooltip on collapse
+              title={isCollapsed ? t(label) : undefined} // Tooltip on collapse
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {(!isCollapsed || isMobileOpen) && <span className="whitespace-nowrap">{label}</span>}
+              {(!isCollapsed || isMobileOpen) && <span className="whitespace-nowrap">{t(label)}</span>}
             </NavLink>
           ))}
         </nav>
@@ -174,11 +185,14 @@ export default function AppShell({ area = 'customer', children }) {
             </button>
 
             <h1 className="text-sm font-medium text-ink-500 hidden sm:block">
-              Welcome back, <span className="text-ink-900 font-semibold">{user?.fullName || user?.email?.split('@')[0]}</span>
+              {t('ui.welcome')}, <span className="text-ink-900 font-semibold">{user?.fullName || user?.email?.split('@')[0]}</span>
             </h1>
           </div>
           
           <div className="flex items-center gap-2">
+            <label className="sr-only" htmlFor="language-select">{t('ui.language')}</label><select id="language-select" aria-label={t('ui.language')} value={i18n.language} onChange={(event) => { i18n.changeLanguage(event.target.value); try { localStorage.setItem('sevasaathi-language', event.target.value); } catch {} }} className="rounded-md border border-ink-200 bg-white px-2 py-1 text-xs text-ink-700"><option value="en">EN</option><option value="hi">HI</option><option value="mr">MR</option></select>
+            <button type="button" aria-label={isDark ? t('ui.lightTheme') : t('ui.darkTheme')} aria-pressed={isDark} onClick={() => setIsDark((value) => !value)} className="rounded-lg p-2 text-ink-600 hover:bg-ink-100">{isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
+            <NotificationBell />
             {area === 'customer' && ['ADMIN', 'STAFF'].includes(user?.role) && (
               <Button variant="secondary" size="sm" onClick={() => nav('/admin')}>Admin</Button>
             )}

@@ -13,17 +13,19 @@ if (config.SMTP_HOST) {
 }
 
 const templates = {
-  'verify-email': (v) => ({
-    subject: 'Verify your SevaSaathi email',
-    html: `<p>Hi ${v.name},</p><p>Please verify your email: <a href="${v.link}">Verify</a></p>`,
-  }),
   'reset-password': (v) => ({
     subject: 'Reset your SevaSaathi password',
     html: `<p>Hi ${v.name},</p><p>Reset link: <a href="${v.link}">Reset password</a></p><p>Expires in 1 hour.</p>`,
   }),
   'status-changed': (v) => ({
     subject: `Request ${v.trackingNumber} – ${v.status}`,
-    html: `<p>Hi ${v.name},</p><p>Request <b>${v.trackingNumber}</b> status: <b>${v.status}</b>.</p>${v.reason ? `<p>Reason: ${v.reason}</p>` : ''}`,
+    html: v.status === 'COMPLETED'
+      ? `<p>Hi ${v.name},</p><p>Your ${v.service || 'service'} application <b>${v.trackingNumber}</b> is complete. Sign in to SevaSaathi to view your completion record and request home delivery if available.</p><p>This portal record is not an official government certificate or card.</p>`
+      : `<p>Hi ${v.name},</p><p>Request <b>${v.trackingNumber}</b> status: <b>${v.status}</b>.</p>${v.reason ? `<p>Reason: ${v.reason}</p>` : ''}`,
+  }),
+  'home-delivery-requested': (v) => ({
+    subject: `Home delivery requested for ${v.trackingNumber}`,
+    html: `<p>Hi ${v.name},</p><p>Your home delivery request for <b>${v.service}</b> (${v.trackingNumber}) has been received.</p><p>Requested address: ${v.address}</p><p>Our team will contact you to confirm delivery arrangements. This is a request, not a dispatch confirmation.</p>`,
   }),
   'documents-received': (v) => ({
     subject: `Documents received for request ${v.trackingNumber}`,

@@ -4,6 +4,9 @@ dev.db
 dev.db-*
 test.db
 test.db-*
+.test-run-*
+sevasaathi-test-run-*.db
+sevasaathi-test-run-*.db-*
 storage/
 coverage/
 *.log

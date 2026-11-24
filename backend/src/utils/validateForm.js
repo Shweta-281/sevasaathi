@@ -5,7 +5,7 @@ function fieldSchema(f) {
   let s;
   switch (f.type) {
     case 'string':
-      s = z.string();
+      s = z.string().trim();
       if (f.min != null) s = s.min(f.min);
       if (f.max != null) s = s.max(f.max);
       if (f.pattern) s = s.regex(new RegExp(f.pattern), 'Invalid format');
@@ -42,8 +42,16 @@ function fieldSchema(f) {
 
 export function validateFormData(formSchemaJson, data) {
   const schema = JSON.parse(formSchemaJson);
-  const shape = Object.fromEntries((schema.fields || []).map(fieldSchema));
-  const result = z.object(shape).strict().safeParse(data);
+  const fields = schema.fields || [];
+  const shape = Object.fromEntries(fields.map(fieldSchema));
+  const normalized = { ...data };
+  for (const field of fields) {
+    const value = normalized[field.name];
+    if (typeof value !== 'string') continue;
+    normalized[field.name] = field.type === 'aadhaar' ? value.replace(/\s/g, '') : value.trim();
+    if (!field.required && normalized[field.name] === '') delete normalized[field.name];
+  }
+  const result = z.object(shape).strict().safeParse(normalized);
   if (!result.success) {
     throw new AppError('Form data validation failed', 'INVALID_FORM_DATA', 400, result.error.flatten());
   }

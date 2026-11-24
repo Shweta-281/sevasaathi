@@ -25,6 +25,31 @@ router.get('/staff-dashboard', requireRole('ADMIN', 'STAFF'), async (_req, res, 
 // User management, audit logs, and exports contain admin-only data/actions.
 router.use(requireRole('ADMIN'));
 
+router.get('/feedback', async (_req, res, next) => {
+  try {
+    const items = await prisma.feedback.findMany({ include: { user: { select: { fullName: true, email: true } }, request: { select: { trackingNumber: true, service: { select: { name: true } } } } }, orderBy: { createdAt: 'desc' }, take: 200 });
+    res.json(items);
+  } catch (error) { next(error); }
+});
+
+router.get('/users', async (_req, res, next) => {
+  try {
+    const users = await prisma.user.findMany({ select: { id: true, email: true, fullName: true, phone: true, role: true, active: true, createdAt: true, emailVerifiedAt: true }, orderBy: { createdAt: 'desc' } });
+    res.json(users);
+  } catch (error) { next(error); }
+});
+const updateUserSchema = z.object({ role: z.enum(['CUSTOMER', 'STAFF', 'ADMIN']).optional(), active: z.boolean().optional() }).refine((value) => Object.keys(value).length > 0);
+router.patch('/users/:id', validate(updateUserSchema), audit('user.update', { target: (req) => ({ type: 'User', id: req.params.id }) }), async (req, res, next) => {
+  try {
+    if (req.params.id === req.user.id && (req.body.active === false || req.body.role && req.body.role !== 'ADMIN')) throw Errors.badRequest('You cannot deactivate or demote your own account');
+    const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!existing) throw Errors.notFound('User not found', 'USER_NOT_FOUND');
+    if (existing.role === 'ADMIN' && req.body.role && req.body.role !== 'ADMIN' && await prisma.user.count({ where: { role: 'ADMIN', active: true } }) <= 1) throw Errors.badRequest('At least one active administrator must remain');
+    const user = await prisma.user.update({ where: { id: req.params.id }, data: req.body, select: { id: true, email: true, fullName: true, role: true, active: true } });
+    res.json(user);
+  } catch (error) { next(error); }
+});
+
 router.get('/exports', (_req, res) => {
   res.set('Cache-Control', 'private, no-store');
   res.json(exportSvc.listAdminReports());

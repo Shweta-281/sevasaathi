@@ -16,6 +16,7 @@ export default function ServiceDetail({ embedded }) {
   const [submitting, setSubmitting] = useState(false);
   const [consent, setConsent] = useState(false);
   const [files, setFiles] = useState([]);
+  const [documentKind, setDocumentKind] = useState('');
   const user = useAuth((s) => s.user);
   const nav = useNavigate();
 
@@ -23,6 +24,10 @@ export default function ServiceDetail({ embedded }) {
     api.get(`/services/${slug}`).then((r) => setService(r.data)).catch(() => toast.error('Service not found'))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  useEffect(() => {
+    if (service?.requiredDocuments?.length && !documentKind) setDocumentKind(service.requiredDocuments[0]);
+  }, [service, documentKind]);
 
   useEffect(() => {
     if (user) api.get('/auth/me').then((r) => setProfile(r.data)).catch(() => {});
@@ -42,6 +47,7 @@ export default function ServiceDetail({ embedded }) {
       if (files.length) {
         const fd = new FormData();
         files.forEach((f) => fd.append('files', f));
+        if (documentKind) fd.append('kind', documentKind);
         try {
           await api.post(`/uploads/requests/${created.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
         } catch {
@@ -53,7 +59,9 @@ export default function ServiceDetail({ embedded }) {
       toast.success(`Request created: ${created.trackingNumber}`);
       nav(`/app/requests/${created.id}`);
     } catch (e) {
-      toast.error(e.response?.data?.error || 'Could not create request');
+      const details = e.response?.data?.details?.fieldErrors;
+      const fields = details ? Object.entries(details).flatMap(([name, messages]) => messages.map((message) => `${name}: ${message}`)) : [];
+      toast.error(fields.length ? `Please check: ${fields.join('; ')}` : e.response?.data?.error || 'Could not create request');
     } finally { setSubmitting(false); }
   };
 
@@ -125,8 +133,9 @@ export default function ServiceDetail({ embedded }) {
           <div className="mt-8 border-t border-ink-100 pt-6 space-y-4">
             <div>
               <label className="label-base">Upload documents</label>
+              {service.requiredDocuments?.length > 0 && <label className="mb-2 block text-sm text-ink-600">Document type<select value={documentKind} onChange={(event) => setDocumentKind(event.target.value)} className="input-base mt-1"><option value="">Choose document type</option>{service.requiredDocuments.map((document) => <option key={document} value={document}>{document}</option>)}</select></label>}
               <input type="file" multiple accept=".jpg,.jpeg,.png,.pdf"
-                onChange={selectFiles}
+                onChange={(event) => { if (service.requiredDocuments?.length && !documentKind) { toast.error('Choose a document type first'); event.target.value = ''; return; } selectFiles(event); }}
                 className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:font-medium hover:file:bg-brand-100 cursor-pointer" />
               <p className="mt-1 text-xs text-ink-500">JPG, PNG, or PDF · up to 5 MB per file · maximum 5 files.</p>
               {files.length > 0 && (

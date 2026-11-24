@@ -1,74 +1,78 @@
-<div align="center">
-
 # SevaSaathi
 
-### A clearer way to request, manage, and track assisted services
+SevaSaathi is a full-stack service application and tracking portal built as an academic demonstration. Customers can create accounts, submit applications, upload documents, track progress, receive notifications, and download payment receipts. Staff and administrators can manage requests, services, users, appointments, feedback, and reports.
 
-**SevaSaathi** means “your service companion”: one place to start an assisted-service request, follow its progress, and manage the related documents and appointments.
+> **Demonstration only:** SevaSaathi is not an official government website and does not represent UIDAI or any government agency. It cannot issue identity cards or certificates. Use fictional information and files during development.
 
-An independent service portal concept with a customer dashboard, staff workspace, document handling, payments, appointments, and a public request tracker.
-
-[Features](#-what-you-can-do) · [Run locally](#-run-it-locally) · [Demo accounts](#-development-demo-accounts) · [Configuration](#-configuration) · [Troubleshooting](#-troubleshooting)
-
-</div>
-
-> **Important:** This is a demonstration project and independent service portal. It is not an official government website, does not issue government identity documents, and must not be used to imply government affiliation. Use fictional sample data only.
-
----
-
-## ✨ What you can do
+## Features
 
 ### Customer portal
 
-- Register with email and password, sign in, or use optional Google sign-in.
-- Browse available services and submit a guided request.
-- Upload supporting documents and review their request status.
-- View appointments, payments, receipts, and profile settings.
-- Search and filter requests, download receipts, and export request lists.
-- Check a request’s latest status using its tracking number, without exposing personal form data or uploaded files.
+- Create an account with an email address and password.
+- Sign in normally with email and password.
+- Recover a forgotten password.
+- Browse services and complete dynamic application forms.
+- Record consent and upload supporting documents.
+- Track request status, staff updates, and processing milestones.
+- View in-app notifications and request email notifications.
+- Book appointments and submit feedback.
+- View payments and download PDF receipts.
+- Search requests and use public tracking with an application number.
+- Switch between English, Hindi, and Marathi.
 
 ### Staff and administration
 
-- Role-protected administration dashboard for staff and administrators.
-- Review requests, update their status, manage the service catalogue, and view dashboard metrics.
-- Keep an audit record of supported administrative actions.
-- Export eight operational reports (requests, users, payments, appointments, services, document metadata, audit activity, and daily totals) as `.xlsx` workbooks or PDFs. Export rows include relevant customer details and India-local timestamps; credentials, Aadhaar values, document contents, and private storage paths are excluded.
+- Manage the staff and administrator queues.
+- Review submitted data and document metadata.
+- Update application states and process appointments.
+- Complete the staff checklist before marking a request complete.
+- Create or update services and processing targets.
+- Activate or deactivate services and user accounts.
+- Manage customer, staff, and administrator roles.
+- View request, revenue, service, and feedback metrics.
+- Export operational reports to XLSX or PDF.
+- Optionally protect staff and administrator accounts with TOTP.
 
-### Service and security details
+### Platform and security
 
-- Password sign-in uses hashed passwords and rate limits; refresh sessions use an HTTP-only cookie.
-- Optional Google sign-in verifies Google’s signed ID token on the backend.
-- Aadhaar values are encrypted by the backend before storage; use a strong, private encryption key.
-- Private uploaded files require authentication and authorization to download.
-- Public tracking returns only the request number, service, current status, status note, and last update time.
+- React 18 and Vite frontend.
+- Node.js and Express REST API.
+- Prisma ORM with SQLite for local development.
+- Prisma PostgreSQL support and Docker Compose deployment.
+- bcrypt password hashing.
+- JWT access tokens and HTTP-only refresh cookies.
+- Login lockout and role-based API authorization.
+- Helmet security headers and request rate limits.
+- Encrypted Aadhaar storage and private uploaded-document storage.
+- Zod validation and Pino structured logging.
+- Swagger API documentation and a Postman collection.
 
-## 🧭 Request tracking
+## Technology stack
 
-Open **Track a request** and enter the number from the application acknowledgement. The page checks the API connection and displays whether the tracker service is reachable. A successful lookup shows the latest saved status and highlights its place in the usual request flow.
+| Area | Technology |
+|---|---|
+| Frontend | React 18, Vite, React Router, Zustand, React Hook Form, Tailwind CSS, Recharts, i18next |
+| Backend | Node.js, Express, Zod, Pino, Helmet, express-rate-limit |
+| Database | SQLite through Prisma locally; PostgreSQL through Prisma with Docker |
+| Authentication | bcrypt, JWT, rotating refresh-token cookies, optional TOTP |
+| Documents | Local private storage, PDFKit, uploaded-file validation |
+| Payments | Razorpay integration or configured local/demo payment flow |
+| Email | Optional SMTP/Nodemailer delivery |
 
-Tracking numbers use this shape: `AS-YYYY-NNNNNN`, for example `AS-2026-100001` in the current seeded development data. The progress graphic is a guide based on the current status; it is not a full event-by-event history. If a number is not found, confirm it against the acknowledgement and check that the local database has been seeded.
+## Prerequisites
 
-The API health endpoint is available at `http://localhost:4000/api/health` when the backend is running.
+- Node.js 20 or later
+- npm
+- Git
+- Docker Desktop is optional for the PostgreSQL setup
 
-## 🧰 Technology
+## Run locally
 
-| Area | Tools |
-| --- | --- |
-| Web app | React 18, Vite, React Router, Zustand, Tailwind CSS |
-| API | Node.js, Express, Zod |
-| Database | SQLite and Prisma |
-| Documents and receipts | Local upload storage and PDFKit |
-| Payments | Razorpay integration, configured with backend environment variables |
-| Sign-in | Password authentication; Google Identity Services is optional |
+The frontend and backend run as separate processes.
 
-## 🚀 Run it locally
+### 1. Configure the backend
 
-### Prerequisites
-
-- Node.js 20 or later and npm.
-- Windows, macOS, or Linux.
-
-### 1. Install the backend and configure its environment
+Open a terminal in the repository root:
 
 ```powershell
 cd backend
@@ -76,40 +80,38 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Open `backend/.env` and replace the development encryption key and JWT secret. Generate each value with Node, then paste the output into the matching setting:
+Generate separate secure values for application secrets:
 
 ```powershell
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-Use a different generated value for `JWT_ACCESS_SECRET` and `AADHAAR_ENC_KEY`. The Aadhaar key must be 64 hexadecimal characters. Never commit `.env` or reuse these development secrets in production.
+Set these values in `backend/.env`:
 
-For a **new, empty local database**, sync the schema and create the Prisma client:
+- `JWT_ACCESS_SECRET`
+- `TOTP_ENC_KEY`
+- `AADHAAR_ENC_KEY`
+
+`AADHAAR_ENC_KEY` must be exactly 64 hexadecimal characters. Keep a secure backup of encryption keys; changing one can make previously stored Aadhaar data unreadable.
+
+Initialize the local SQLite database:
 
 ```powershell
-npx prisma db push --accept-data-loss
+npm run db:push
 npm run db:generate
-```
-
-`--accept-data-loss` is shown only for initial setup of a disposable local database because Prisma can warn when it adds a unique Google identity column. Do not use it against a database with data you need to keep. Back up an existing database and review schema changes first. Stop the backend before regenerating Prisma Client if Windows reports that a query-engine file is locked.
-
-Load the sample services, development accounts, and example requests:
-
-```powershell
 npm run db:seed
-```
-
-Start the API:
-
-```powershell
 npm run dev
 ```
 
-It listens at `http://localhost:4000`. Verify that it is available at `http://localhost:4000/api/health`.
+The backend runs at `http://localhost:4000`.
 
-### 2. Install and start the frontend
+- Health: `http://localhost:4000/api/health`
+- Swagger UI: `http://localhost:4000/api/docs`
+- OpenAPI JSON: `http://localhost:4000/api/docs.json`
 
-Open a second terminal from the project root:
+### 2. Configure and start the frontend
+
+Open another terminal:
 
 ```powershell
 cd frontend
@@ -117,100 +119,179 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` calls to the local backend on port `4000`.
+Open `http://localhost:5173`. Vite proxies `/api` requests to `http://localhost:4000`.
 
-### Development demo accounts
+## Development accounts
 
-The seed script creates these local-only accounts with the same development password:
+The seed script creates local-only accounts. It does not send verification emails; registration and these demo accounts can sign in directly with email and password.
 
 | Role | Email | Password |
-| --- | --- | --- |
+|---|---|---|
 | Administrator | `admin@sevasaathi.test` | `password123` |
 | Staff | `staff@sevasaathi.test` | `password123` |
-| Customer (Rahul Sharma) | `customer@sevasaathi.test` | `password123` |
+| Customer | `customer@sevasaathi.test` | `password123` |
 
-These credentials are public in the seed script. They are for local demonstrations only; never seed these accounts into a live deployment. The current seeded data includes the example tracking number `AS-2026-100001`; run the seed command if it does not exist in your local database.
+If a demo account is missing or inactive, run this from `backend/`:
 
-When you reseed an existing development database, the seed script renames its legacy demo email addresses in place so existing requests stay attached to the same users.
+```powershell
+npm run db:seed
+```
 
-## ⚙️ Configuration
+Demo credentials are public source data and must not be used in a deployed environment.
 
-The backend reads its environment from `backend/.env`. Start from [`backend/.env.example`](backend/.env.example).
+## Environment configuration
 
-| Setting | Purpose |
-| --- | --- |
-| `DATABASE_URL` | SQLite connection string for local development. |
-| `JWT_ACCESS_SECRET` | Secret used to sign access tokens; use a unique strong value. |
-| `AADHAAR_ENC_KEY` | 32-byte hex key for encrypting Aadhaar values. Back it up securely; losing it makes existing encrypted values unreadable. |
-| `GOOGLE_CLIENT_ID` | Optional Google web client ID. Leave blank to hide Google sign-in. See [`GOOGLE_AUTH_SETUP.md`](GOOGLE_AUTH_SETUP.md). |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Razorpay credentials for payment integration. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email delivery for verification and request notifications. |
-| `APP_BASE_URL`, `CORS_ORIGIN` | Backend links and the allowed browser origin. Set these to your deployment URLs when hosting. |
-| `UPLOAD_DIR`, `MAX_UPLOAD_BYTES` | Local document storage path and upload size limit. |
-| `SUPPORT_EMAIL` | Optional support contact address. |
+The complete backend template is [`backend/.env.example`](backend/.env.example).
 
-When Google sign-in is enabled, register the frontend origin in Google Cloud Console (for local development, `http://localhost:5173`) and use the generated **Web application** client ID. Do not put a Google client secret in the frontend.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | SQLite URL for local development |
+| `JWT_ACCESS_SECRET` | Signs access tokens |
+| `AADHAAR_ENC_KEY` | 32-byte hexadecimal encryption key |
+| `TOTP_ENC_KEY` | Encrypts staff authenticator secrets |
+| `FRONTEND_URL` | Public frontend URL used for application links |
+| `APP_BASE_URL` | Public/backend base URL |
+| `CORS_ORIGIN` | Allowed browser origin |
+| `UPLOAD_DIR` | Private uploaded-document directory |
+| `MAX_UPLOAD_BYTES` | Maximum upload size |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Optional email delivery settings |
+| `SUPPORT_EMAIL` | Support mailbox shown in the application |
+| `GOOGLE_CLIENT_ID` | Optional Google Identity client ID |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Optional Razorpay settings |
+| `LOCKOUT_MAX_ATTEMPTS`, `LOCKOUT_WINDOW_MIN` | Login lockout policy |
+| `RETENTION_DAYS`, `BACKUP_DIR` | Data retention and backup settings |
 
-## 🗂️ Project layout
+The frontend template is [`frontend/.env.example`](frontend/.env.example). It currently uses `VITE_API_URL` to configure the backend API URL.
+
+Never place private secrets in `VITE_*` variables. Never commit `backend/.env`, `.env.compose`, databases, uploads, backups, or keys.
+
+## Docker with PostgreSQL
+
+Create the Compose environment file:
+
+```powershell
+Copy-Item .env.compose.example .env
+```
+
+Set a strong PostgreSQL password in the root `.env` file. The required variable is `POSTGRES_PASSWORD`.
+
+Build and initialize PostgreSQL:
+
+```powershell
+docker compose up --build -d database
+docker compose build
+docker compose run --rm api npx prisma db push --schema prisma/schema.postgresql.prisma
+docker compose up -d
+```
+
+Open `http://localhost:8080`.
+
+- Frontend: `http://localhost:8080`
+- API health: `http://localhost:8080/api/health`
+
+The Compose setup persists PostgreSQL data and application files in Docker volumes. For production, use versioned database migrations, managed secrets, HTTPS, backups, and a reviewed deployment configuration.
+
+## Tests and quality checks
+
+Run backend tests:
+
+```powershell
+cd backend
+npm test
+```
+
+The test runner uses a temporary SQLite database and serial execution. It does not run against the normal development database.
+
+Run frontend tests and build:
+
+```powershell
+cd frontend
+npm test -- --run
+npm run build
+```
+
+Additional test documentation is available in [`docs/TEST_CASES.md`](docs/TEST_CASES.md).
+
+## API and project documentation
+
+- [API collection](postman/SevaSaathi.postman_collection.json)
+- [Project report](docs/PROJECT_REPORT.md)
+- [Test cases](docs/TEST_CASES.md)
+- [Google sign-in setup](GOOGLE_AUTH_SETUP.md)
+
+## Project structure
 
 ```text
 .
 ├── backend/
-│   ├── prisma/             # SQLite schema and development seed
+│   ├── prisma/              # Schemas and seed data
+│   ├── scripts/             # Test runner and backup utility
+│   ├── src/
+│   │   ├── routes/          # REST routes
+│   │   └── services/        # Auth and application services
+│   └── tests/               # Backend tests
+├── frontend/
 │   └── src/
-│       ├── routes/         # HTTP endpoints
-│       ├── services/       # Request, auth, payment, and domain logic
-│       ├── middleware/     # Authentication, validation, and permissions
-│       └── utils/          # Tokens, encryption, tracking, and validation
-└── frontend/
-    └── src/
-        ├── components/     # Shared interface and app shell
-        ├── pages/          # Public pages and customer/admin views
-        ├── lib/             # API client and display helpers
-        └── store/           # Client auth state
+│       ├── components/      # Shared UI components
+│       ├── pages/           # Route pages
+│       ├── store/           # Zustand application state
+│       └── lib/             # API client and shared utilities
+├── docs/                    # Project report and test documentation
+├── postman/                 # Postman API collection
+└── docker-compose.yml       # PostgreSQL and production-style web setup
 ```
 
-## 🧪 Useful commands
+## Troubleshooting
 
-Run these from the directory indicated:
+### Login shows invalid credentials
 
-| Directory | Command | Purpose |
-| --- | --- | --- |
-| `backend/` | `npm run dev` | Start the API with file watching. |
-| `backend/` | `npm run db:push` | Sync Prisma schema changes to the local database. Back up data first. |
-| `backend/` | `npm run db:generate` | Generate Prisma Client. Stop the server first if Windows locks the query engine. |
-| `backend/` | `npm run db:seed` | Load development services, accounts, and example requests. |
-| `backend/` | `npm test` | Run the backend Vitest suite. |
-| `frontend/` | `npm run dev` | Start the Vite development server. |
-| `frontend/` | `npm run build` | Create the frontend production bundle in `frontend/dist`. |
+- Enter the exact demo email and password.
+- Confirm `npm run db:seed` was run in `backend/`.
+- Confirm the backend is using the same SQLite database expected by the seed.
+- Check that the account is active.
 
-## 🔎 Troubleshooting
+### The frontend cannot reach the API
 
-### Tracker says “Tracker unavailable”
+- Start the backend on port `4000`.
+- Start the frontend on port `5173`.
+- Open `http://localhost:4000/api/health`.
+- Confirm `CORS_ORIGIN` and `VITE_API_URL` match the running services.
 
-Start the backend and open `http://localhost:4000/api/health`. It should return JSON with `"ok": true`. Confirm the frontend is at port `5173` and the backend is at port `4000`; Vite’s API proxy is configured for those local ports.
+### Prisma engine or generated client error on Windows
 
-### The tracker says no matching request
+Stop the backend process, close other Node processes using Prisma, and run:
 
-Confirm the number exactly as printed on the acknowledgement. To load the local example records, run `npm run db:seed` from `backend/`, then try `AS-2026-100001`.
+```powershell
+cd backend
+npm run db:generate
+```
 
-### Google sign-in is not visible
+Then restart the backend.
 
-Set `GOOGLE_CLIENT_ID` in `backend/.env`, restart the backend, and add `http://localhost:5173` to the OAuth client’s authorized JavaScript origins. Details are in [`GOOGLE_AUTH_SETUP.md`](GOOGLE_AUTH_SETUP.md).
+### Uploaded documents or receipts are unavailable
 
-### Prisma cannot replace its query engine on Windows
+- Confirm the document was uploaded successfully.
+- Sign in with the account that owns the request.
+- Verify the request or payment status required by the endpoint.
+- Confirm the `UPLOAD_DIR` still exists and contains the application files.
 
-Stop the backend process that is using Prisma Client, then rerun `npm run db:generate` from `backend/`.
+### Docker cannot start PostgreSQL
 
-## 🛡️ Deployment notes
+- Start Docker Desktop.
+- Confirm `POSTGRES_PASSWORD` exists in the root `.env`.
+- Inspect logs with `docker compose logs database`.
+- Use `docker compose down` to stop containers without removing volumes.
 
-- Serve the app over HTTPS and use production-only secrets.
-- Change `APP_BASE_URL`, `CORS_ORIGIN`, OAuth origins, email settings, and payment settings to match the deployed domain.
-- Do not expose `.env`, sample credentials, database files, or uploaded documents publicly.
-- Back up the database, encryption key, and uploaded files through separate, access-controlled processes.
-- SQLite and local uploads are suitable for local development and a simple single-instance demo. Select and configure managed database and file storage for a multi-instance production deployment.
-- Review privacy, retention, accessibility, email delivery, and payment behavior before handling real users or personal information.
+## Security and privacy
 
-## 📄 License
+- Use only fictional data for demos.
+- Do not store real Aadhaar numbers, PAN numbers, identity documents, or payment details.
+- Use strong, unique secrets in deployed environments.
+- Keep uploaded documents and databases outside public web directories.
+- Protect backups and encryption keys.
+- Use HTTPS and managed environment secrets for any real deployment.
+- Review permissions and audit logs before pilot or production use.
 
-No license file is currently included. Ask the project owner before redistributing or using this code outside its intended demonstration context.
+## License
+
+This project is distributed under the MIT License. See [`LICENSE`](LICENSE).

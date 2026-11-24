@@ -12,6 +12,7 @@ import Track from './pages/Track.jsx';
 import Services from './pages/Services.jsx';
 import ServiceDetail from './pages/ServiceDetail.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 
 import CustomerDashboard from './pages/customer/Dashboard.jsx';
 import MyRequests from './pages/customer/MyRequests.jsx';
@@ -23,6 +24,8 @@ import StaffDashboard from './pages/admin/StaffDashboard.jsx';
 import AdminRequests from './pages/admin/Requests.jsx';
 import AdminServices from './pages/admin/Services.jsx';
 import AdminExports from './pages/admin/Exports.jsx';
+import AdminUsers from './pages/admin/Users.jsx';
+import AdminFeedback from './pages/admin/Feedback.jsx';
 
 import Appointments from './pages/customer/Appointments.jsx';
 import Documents from './pages/customer/Documents.jsx';
@@ -63,6 +66,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<Legal type="privacy" />} />
       <Route path="/terms" element={<Legal type="terms" />} />
       <Route path="/track" element={<Track />} />
@@ -84,6 +88,8 @@ export default function App() {
       <Route path="/admin/requests" element={<Protected roles={['ADMIN', 'STAFF']} area="admin"><AdminRequests /></Protected>} />
       <Route path="/admin/services" element={<Protected roles={['ADMIN']} area="admin"><AdminServices /></Protected>} />
       <Route path="/admin/exports" element={<Protected roles={['ADMIN']} area="admin"><AdminExports /></Protected>} />
+      <Route path="/admin/users" element={<Protected roles={['ADMIN']} area="admin"><AdminUsers /></Protected>} />
+      <Route path="/admin/feedback" element={<Protected roles={['ADMIN']} area="admin"><AdminFeedback /></Protected>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/app/appointments" element={<Protected><Appointments /></Protected>} />

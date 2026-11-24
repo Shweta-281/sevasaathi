@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/role.js';
 import { addClient, removeClient } from '../lib/sse.js';
 import * as auth from '../services/auth.service.js';
 import { config } from '../config.js';
@@ -19,7 +20,7 @@ const cookieOpts = {
   maxAge: config.REFRESH_TOKEN_TTL_DAYS * 86400_000,
 };
 
-const loginLimiter = rateLimit({ windowMs: 60_000, max: 20 });
+const loginLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 const googleNonceCookie = 'googleSignInNonce';
 const googleNonceOpts = { httpOnly: true, secure: config.NODE_ENV === 'production', sameSite: 'lax', path: '/api/auth/google', maxAge: 5 * 60_000 };
 
@@ -29,13 +30,14 @@ const registerSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
   phone: z.string().regex(/^[6-9]\d{9}$/).optional(),
 });
-const loginSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
+const loginSchema = z.object({ email: z.string().email(), password: z.string().min(1), otp: z.string().regex(/^\d{6}$/).optional() });
 const forgotSchema = z.object({ email: z.string().email() });
 const resetSchema = z.object({ token: z.string().min(10), password: z.string().min(8).max(128) });
 const profileSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
   phone: z.string().regex(/^[6-9]\d{9}$/).or(z.literal('')),
   address: z.string().trim().max(500).optional(),
+  emailNotifications: z.boolean().default(true),
 });
 const changePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8).max(128) });
 const deleteAccountSchema = z.object({ password: z.string().min(1), confirmation: z.literal('DELETE') });
@@ -52,16 +54,18 @@ router.patch('/me', requireAuth, validate(profileSchema), async (req, res, next)
 router.post('/change-password', requireAuth, validate(changePasswordSchema), async (req, res, next) => {
   try { await auth.changePassword(req.user.id, req.body); res.json({ ok: true }); } catch (e) { next(e); }
 });
+router.post('/totp/setup', requireAuth, requireRole('STAFF', 'ADMIN'), async (req, res, next) => {
+  try { res.json(await auth.setupTotp(req.user.id)); } catch (e) { next(e); }
+});
+const totpCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
+router.post('/totp/enable', requireAuth, requireRole('STAFF', 'ADMIN'), validate(totpCodeSchema), async (req, res, next) => {
+  try { res.json(await auth.enableTotp(req.user.id, req.body.code)); } catch (e) { next(e); }
+});
+router.post('/totp/disable', requireAuth, requireRole('STAFF', 'ADMIN'), validate(totpCodeSchema), async (req, res, next) => {
+  try { res.json(await auth.disableTotp(req.user.id, req.body.code)); } catch (e) { next(e); }
+});
 router.delete('/me', requireAuth, validate(deleteAccountSchema), async (req, res, next) => {
   try { await auth.deleteAccount(req.user.id, req.body.password); res.clearCookie('refreshToken', { path: '/' }); res.json({ ok: true }); } catch (e) { next(e); }
-});
-router.get('/verify-email', async (req, res, next) => {
-  try {
-    const token = String(req.query.token || '');
-    if (!token) throw Errors.badRequest('Missing token');
-    await auth.verifyEmail(token);
-    res.json({ ok: true });
-  } catch (e) { next(e); }
 });
 router.post('/login', loginLimiter, validate(loginSchema), async (req, res, next) => {
   try {

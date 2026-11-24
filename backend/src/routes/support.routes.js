@@ -16,6 +16,11 @@ const enquirySchema = z.object({
 
 const escapeHtml = (value) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
+router.get('/contact', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ email: config.SUPPORT_EMAIL || null, emailEnabled: Boolean(config.SUPPORT_EMAIL && config.SMTP_HOST) });
+});
+
 router.post('/enquiries', requireAuth, limiter, validate(enquirySchema), async (req, res, next) => {
   try {
     if (!config.SUPPORT_EMAIL || !config.SMTP_HOST) throw Errors.internal('Support email is not configured', 'SUPPORT_UNAVAILABLE');
