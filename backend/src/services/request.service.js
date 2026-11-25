@@ -188,11 +188,22 @@ export async function updateStatus(id, { status, reason, completionChecklist }) 
     await tx.requestEvent.create({ data: { requestId: id, type: 'STATUS', status, note: reason || null } });
     return request;
   });
-  if (previous.status !== status && updated.user.emailNotifications) sendEmail({
-    to: updated.user.email,
-    template: 'status-changed',
-    vars: { name: updated.user.fullName || updated.user.email, trackingNumber: updated.trackingNumber, service: updated.service.name, status: updated.status, reason: updated.statusReason },
-  });
+  
+  // This block triggers the email. If status is COMPLETED, the updated email.js will send the Certificate message.
+  if (previous.status !== status && updated.user.emailNotifications) {
+    sendEmail({
+      to: updated.user.email,
+      template: 'status-changed',
+      vars: { 
+        name: updated.user.fullName || updated.user.email, 
+        trackingNumber: updated.trackingNumber, 
+        service: updated.service.name, 
+        status: updated.status, 
+        reason: updated.statusReason 
+      },
+    });
+  }
+  
   if (previous.status !== status) await createNotification(updated.userId, {
     title: `Request ${status.toLowerCase().replaceAll('_', ' ')}`,
     message: `${updated.service.name} (${updated.trackingNumber}) is now ${status.toLowerCase().replaceAll('_', ' ')}.${reason ? ` ${reason}` : ''}`,

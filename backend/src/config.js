@@ -14,14 +14,15 @@ const schema = z.object({
   CONSENT_VERSION: z.string().default('v1'),
   UPLOAD_DIR: z.string().default('./storage/uploads'),
   MAX_UPLOAD_BYTES: z.coerce.number().default(5 * 1024 * 1024),
+  
   RAZORPAY_KEY_ID: z.string().optional().default(''),
   RAZORPAY_KEY_SECRET: z.string().optional().default(''),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(''),
-  SMTP_HOST: z.string().optional().default(''),
-  SMTP_PORT: z.coerce.number().optional().default(587),
-  SMTP_USER: z.string().optional().default(''),
-  SMTP_PASS: z.string().optional().default(''),
-  MAIL_FROM: z.string().default('SevaSaathi <no-reply@sevasaathi.local>'),
+  
+  // --- UPDATED EMAIL CONFIGURATION ---
+  RESEND_API_KEY: z.string().optional().default(''),
+  MAIL_FROM: z.string().default('SevaSaathi <onboarding@resend.dev>'), 
+  
   SUPPORT_EMAIL: z.string().email().or(z.literal('')).default(''),
   APP_BASE_URL: z.string().default('http://localhost:4000'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
