@@ -18,20 +18,26 @@ const escapeHtml = (value) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;
 
 router.get('/contact', (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ email: config.SUPPORT_EMAIL || null, emailEnabled: Boolean(config.SUPPORT_EMAIL && config.SMTP_HOST) });
+  // UPDATED: Check for RESEND_API_KEY instead of SMTP_HOST
+  res.json({ email: config.SUPPORT_EMAIL || null, emailEnabled: Boolean(config.SUPPORT_EMAIL && config.RESEND_API_KEY) });
 });
 
 router.post('/enquiries', requireAuth, limiter, validate(enquirySchema), async (req, res, next) => {
   try {
-    if (!config.SUPPORT_EMAIL || !config.SMTP_HOST) throw Errors.internal('Support email is not configured', 'SUPPORT_UNAVAILABLE');
+    // UPDATED: Check for RESEND_API_KEY instead of SMTP_HOST
+    if (!config.SUPPORT_EMAIL || !config.RESEND_API_KEY) throw Errors.internal('Support email is not configured', 'SUPPORT_UNAVAILABLE');
+    
     const subject = req.body.subject.replace(/[\r\n]+/g, ' ').trim();
     const message = escapeHtml(req.body.message).replace(/\r?\n/g, '<br>');
+    
     const sent = await sendEmail({
       to: config.SUPPORT_EMAIL,
       subject: `SevaSaathi enquiry: ${subject}`,
       html: `<p>From: ${escapeHtml(req.user.email)}</p><p>Subject: ${escapeHtml(subject)}</p><p>${message}</p>`,
     });
+    
     if (!sent) throw Errors.internal('Support email could not be delivered', 'SUPPORT_DELIVERY_FAILED');
+    
     res.status(202).json({ ok: true });
   } catch (error) { next(error); }
 });
