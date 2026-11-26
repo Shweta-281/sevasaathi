@@ -1,61 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import crypto from 'node:crypto';
+import { SERVICES } from './services.js';
 
 const prisma = new PrismaClient();
 
-// ₹ helper: 500 -> 50000 paise
-const rupees = (r) => Math.round(r * 100);
 const hashPw = async (pw) => bcrypt.hash(pw, 12);
 
-const SERVICES = [
-  {
-    slug: 'aadhaar-address-update', name: 'Aadhaar – Address Update', category: 'Aadhaar',
-    description: 'Update residential address on your Aadhaar card with valid proof.', feePaise: rupees(50),
-    requiredDocuments: ['Address Proof', 'Aadhaar Copy'],
-    formSchema: { fields: [
-      { name: 'aadhaar', label: 'Aadhaar Number', type: 'aadhaar', required: true },
-      { name: 'fullName', label: 'Full Name', type: 'string', required: true, min: 2, max: 100 },
-      { name: 'newAddress', label: 'New Address', type: 'string', required: true, min: 10, max: 500 },
-      { name: 'phone', label: 'Mobile', type: 'phone', required: true }
-    ] }
-  },
-  {
-    slug: 'pan-new', name: 'PAN – New Application', category: 'PAN',
-    description: 'Apply for a new PAN card for Indian citizens.', feePaise: rupees(107),
-    requiredDocuments: ['Aadhaar Copy', 'Photo', 'Signature'],
-    formSchema: { fields: [
-      { name: 'fullName', label: 'Full Name', type: 'string', required: true, min: 2, max: 100 },
-      { name: 'dob', label: 'Date of Birth', type: 'date', required: true },
-      { name: 'gender', label: 'Gender', type: 'enum', options: ['male', 'female', 'other'], required: true },
-      { name: 'aadhaar', label: 'Aadhaar Number', type: 'aadhaar', required: true },
-      { name: 'phone', label: 'Mobile', type: 'phone', required: true }
-    ] }
-  },
-  {
-    slug: 'birth-certificate', name: 'Birth Certificate', category: 'Certificates',
-    description: 'Register a birth and obtain a birth certificate.', feePaise: rupees(100),
-    requiredDocuments: ['Hospital Record', 'Parents Aadhaar Copy'],
-    formSchema: { fields: [
-      { name: 'childName', label: "Child's Name", type: 'string', required: true, min: 2, max: 100 },
-      { name: 'dob', label: 'Date of Birth', type: 'date', required: true },
-      { name: 'hospital', label: 'Hospital', type: 'string', required: true, min: 2, max: 200 }
-    ] }
-  },
-  {
-    slug: 'electricity-bill-payment', name: 'Electricity Bill Payment', category: 'Bill Payments',
-    description: 'Pay electricity bills for any DISCOM (instant).', feePaise: rupees(5),
-    requiredDocuments: [],
-    formSchema: { fields: [
-      { name: 'consumerNumber', label: 'Consumer Number', type: 'string', required: true, min: 4, max: 30 },
-      { name: 'provider', label: 'Provider', type: 'string', required: true, min: 2, max: 80 },
-      { name: 'amount', label: 'Amount (INR)', type: 'number', required: true }
-    ] }
-  }
-];
-
 async function main() {
-  console.log('Seeding services...');
+  console.log(`Seeding ${SERVICES.length} services...`);
   for (const s of SERVICES) {
     await prisma.service.upsert({
       where: { slug: s.slug },
